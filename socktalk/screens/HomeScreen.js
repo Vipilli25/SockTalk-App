@@ -1,63 +1,47 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import io from "socket.io-client";
-import {Text,View, StyleSheet, TextInput,} from 'react-native';
+import { View, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { GiftedChat } from 'react-native-gifted-chat';
+import JoinScreen from './JoinScreen';
 
 export default function HomeScreen() {
+  
+  const [recvMessages, setRecvMessages] = useState([]);
+  const [hasJoined, setHasJoined] = useState(false);
+  const socket = useRef(null);
 
-    const [message, setMessage] = useState("hello");
+  useEffect(() => {
+    socket.current = io("http://localhost:3001");
+    socket.current.on("message", (message) => {
+      setRecvMessages((prevMessages) => GiftedChat.append(prevMessages, message));
+    });
+  }, []);
 
-    useEffect(() => {
-      socket= io("http://192.168.29.192:3001");
-      console.log("trying to connect");
-      try {
-        console.log("connecting");
-        socket.on("connect", () => {
-          console.log("connecting2");
-          console.log("Connected to the server");
-        });
-    
-        socket.on("message", (message) => {
-          console.log("connecting3");
-          console.log(message);
-        });
-      } catch (err) {
-        console.error("Error connecting to the server:", err);
-      }
-      
-    }, []);
-
-     
-    function sendMessage() {
-        socket.emit("message", message);
-        setMessage("");
-        console.log("message sent",message);
-    }
-
-    return (
-      <View style = {styles.container} >
-        <Text>hello</Text>
-        <TextInput
-          onChangeText={text => setMessage(text)}
-          placeholder='Type your message here'
-          value={message}
-            onSubmitEditing={sendMessage}
-        />
-        </View>
-
-    );
+  const sendMessage =(messages) => {
+    socket.current.emit("message", messages[0].text);
+    setRecvMessages((prevMessages) => GiftedChat.append(prevMessages, messages));
   }
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: '#fff',
-      alignItems: 'center',
-      justifyContent:'center',
-    },
-  });
+  const joinChat = (username) => {
+    socket.current.emit("join", username);
+    setHasJoined(true);
+  }
 
+  return (
+    <View style={{ flex: 1 }}>
+      {hasJoined ? 
+        (<GiftedChat
+        renderUsernameOnMessage
+        messages={recvMessages}
+        onSend={messages => sendMessage(messages)}
+        user={{
+          _id: 1,
+        }}
+        placeholder='Type your message here'
+      />) : <JoinScreen  joinChat = {joinChat} /> 
+       }
+      
+    </View>
+  );
+      }
 
-
-
-  
